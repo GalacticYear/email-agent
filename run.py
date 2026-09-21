@@ -13,46 +13,87 @@ def process_inbox():
 
     print(f"Loaded {len(emails)} emails from inbox")
 
-    noise_box=[]
-    action_box=[]
+    final_dispositions={}
+
+    count={"archive":0, "reply":0,"defer":0,"delegate":0,"escalate":0}
+
+    rule_processed_count=0
+    llm_required_count=0
 
     #Looping through emails to separate Workflow content and Agent content
     for email in emails:
+        msg_id=email.get("id")
         sender=email.get("from","").lower()
         subject=email.get("subject","").lower()
         body=email.get("body","").lower()
 
-        #Checking for automated messages
-        is_automated =(
-        "no-reply" in sender or
-        "noreply" in sender or
-        "notification" in sender or
-        "newsletter" in sender or
-        "marketing" in sender
-        )
+        #ESCALATE-detection
+        if "security" in subject or "unauthorized" in body or"password" in subject:
+            final_dispositions[msg_id]={
+                "disposition":"escalate",
+                "reason":"Potential security risk or administrative account alert flagged for review",
+                "requires_llm": True
+            }
+            count["escalate"]+=1
+            llm_required_count+=1
 
-        #Checking for newsletters or receipts
-        noise_keywords=["storage full","receipt","invoice","weekly digest","newsletter","digest",
-                    "subscribe","your order", "order confirmation", "shipping update"
-                    "auto-alert","notification", "upgrade"
-                    ]
-        has_noise_content=any(keyword in subject or keyword in body[:150] for keyword in noise_keywords)
+        #ARCHIVE-detection
+        elif ("no-reply" in sender or "noreply" in sender or "notifications" in sender or
+              any(k in subject or k in body[:100] for k in ["storage full", "unread messages", "usage", "receipt", "invoice", "digest", "newsletter", "shipped"])):
+            final_dispositions[msg_id]={
+                "disposition":"archive",
+                "reason":"Automated alerts",
+                "requires_llm": False
+            }
+            count["archive"]+=1
+            rule_processed_count+=1
 
-        #Triage Decision
-        if is_automated or has_noise_content:
-            noise_box.append(email)
+        #DEFER-detection
+        elif any(k in subject or k in body for k in ["meeting", "deadline", "schedule", "calendar", "tomorrow", "staging"]):
+            final_dispositions[msg_id] = {
+                "disposition": "defer",
+                "reason": "Time-sensitive operational dependency or coordination request held for context compilation.",
+                "requires_llm": True
+            }
+            count["defer"] += 1
+            llm_required_count += 1
+
+
+        # DELEGATE-detection
+        elif any(k in body for k in ["forward to", "assign to", "cc'd", "handle this"]):
+            final_dispositions[msg_id] = {
+                "disposition": "delegate",
+                "reason": "Operational request indicating handoff or division of labor constraints.",
+                "requires_llm": True
+            }
+            count["delegate"] += 1
+            llm_required_count += 1
+
+        #REPLY-detection
         else:
-            action_box.append(email)
+            final_dispositions[msg_id] = {
+                "disposition": "reply",
+                "reason": "Direct peer communication queued for standard context generation.",
+                "requires_llm": True
+            }
+            count["reply"] += 1
+            llm_required_count += 1
 
-    print(f"Noise (Workflow Tier): {len(noise_box)} emails filtered locally.")
-    print(f"Content (AI/Agent Tier): {len(action_box)} emails remaining.")
 
-    if len(action_box) > 0:
-        first_real = action_box[0]
-        print("Next Up for Triage Evaluation:")
-        print(f"From:    {first_real.get('from')}")
-        print(f"Subject: {first_real.get('subject')}")
-        print(f"Body:    {first_real.get('body')[:120]}...")
+    print("FIVE-TIER DISPOSITION METRICS:")
+    for disp_type, ct in count.items():
+        print(f"   • {disp_type.upper().ljust(10)} : {ct} messages")
+    print("-" * 60)
+    print(f"Total Accounted For    : {len(final_dispositions)} / {len(emails)}")
+    print(f"Handled by Rules   : {rule_processed_count} messages")
+    print(f"Pending LLM Engine  : {llm_required_count} messages")
+    print("-" * 60)
+
+    if len(final_dispositions) == len(emails):
+        print("Verification Check PASSED: 100% of messages have a unique disposition assigned!")
+    else:
+        print("Verification Check FAILED: Operational drop detected.")
 
 if __name__ == "__main__":
-process_inbox()
+
+    process_inbox()

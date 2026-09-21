@@ -22,27 +22,27 @@ def process_inbox():
         subject=email.get("subject","").lower()
         body=email.get("body","").lower()
 
-    #Checking for automated messages
-    is_automated =(
+        #Checking for automated messages
+        is_automated =(
         "no-reply" in sender or
         "noreply" in sender or
         "notification" in sender or
         "newsletter" in sender or
         "marketing" in sender
-    )
+        )
 
-    #Check for newsletters or receipts
-    noise_keywords=["storage full","receipt","invoice","weekly digest","newsletter","digest",
+        #Checking for newsletters or receipts
+        noise_keywords=["storage full","receipt","invoice","weekly digest","newsletter","digest",
                     "subscribe","your order", "order confirmation", "shipping update"
                     "auto-alert","notification", "upgrade"
                     ]
-    has_noise_content=any(keyword in subject or keyword in body[:150] for keyword in noise_keywords)
+        has_noise_content=any(keyword in subject or keyword in body[:150] for keyword in noise_keywords)
 
-#Triage Decision
-    if is_automated or has_noise_subject:
-      noise_box.append(email)
-    else:
-     action_box.append(email)
+        #Triage Decision
+        if is_automated or has_noise_content:
+            noise_box.append(email)
+        else:
+            action_box.append(email)
 
     print(f"Noise (Workflow Tier): {len(noise_box)} emails filtered locally.")
     print(f"Content (AI/Agent Tier): {len(action_box)} emails remaining.")

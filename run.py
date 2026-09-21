@@ -20,14 +20,25 @@ def process_inbox():
     for email in emails:
         sender=email.get("from","").lower()
         subject=email.get("subject","").lower()
+        body=email.get("body","").lower()
 
     #Checking for automated messages
-    is_automated ="no-reply" in sender or "noreply" in sender
+    is_automated =(
+        "no-reply" in sender or
+        "noreply" in sender or
+        "notification" in sender or
+        "newsletter" in sender or
+        "marketing" in sender
+    )
 
     #Check for newsletters or receipts
-    noise_keywords=["storage full","receipt","invoice","weekly digest","newsletter","digest"]
-    has_noise_subject=any(keyword in subject for keyword in noise_keywords)
+    noise_keywords=["storage full","receipt","invoice","weekly digest","newsletter","digest",
+                    "subscribe","your order", "order confirmation", "shipping update"
+                    "auto-alert","notification", "upgrade"
+                    ]
+    has_noise_content=any(keyword in subject or keyword in body[:150] for keyword in noise_keywords)
 
+#Triage Decision
     if is_automated or has_noise_subject:
       noise_box.append(email)
     else:
@@ -43,4 +54,5 @@ def process_inbox():
         print(f"Subject: {first_real.get('subject')}")
         print(f"Body:    {first_real.get('body')[:120]}...")
 
+if __name__ == "__main__":
 process_inbox()

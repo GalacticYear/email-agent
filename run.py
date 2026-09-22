@@ -196,55 +196,78 @@ def process_inbox():
             print(f"       Subject: {email.get('subject')}")
 
 
- #PART 3 ADDITION:CONTEXTUAL THREAD-WALKING DEMO
-
-    print("\n\nEVALUATING HISTORICAL CONTEXT VIA THREAD WALKING\n")
-
     
-    # We choose the specific 'm003' email from Sam responding about staging credentials
-    target_msg_id = "m003"
+    # PART 3: DYNAMIC CONTEXTUAL LLM EVALUATION (THREAD LEAF NODE)
+    
+    print("\n" + "="*60)
+    print("DYNAMIC CONTEXTUAL GENERATION (LOCAL LLM - PART 3)")
+    print("="*60)
+    
+    # Target leaf message m005 (Raghav's confirmation that staging is up)
+    target_msg_id = "m005"
     target_email = next((e for e in emails if e.get("id") == target_msg_id), None)
     
     if target_email:
-        t_id = target_email.get("thread_id")
-        full_thread = thread_map.get(t_id, [])
+        msg_thread_id = target_email.get("thread_id", "orphan")
+        full_thread = thread_map.get(msg_thread_id, [])
         
-        # Walk thread: gather all messages in this thread that happened BEFORE the target email
-        historical_context = []
-        context_ids = []
-        
-        for msg in full_thread:
-            if msg.get("timestamp") < target_email.get("timestamp"):
-                historical_context.append(msg)
-                context_ids.append(msg.get("id"))
+        # Walk thread: Collect all prior history context messages chronologically
+        historical_context = [msg for msg in full_thread if msg.get("timestamp") < target_email.get("timestamp")]
+        context_ids = [msg.get("id") for msg in historical_context]
                 
-        print(f"  Target Message Identified: {target_msg_id}")
+        print(f" Target Leaf Message Identified: {target_msg_id}")
         print(f"   From:    {target_email.get('from')}")
         print(f"   Subject: {target_email.get('subject')}")
         print(f"   Body:    {target_email.get('body')}")
-        print(f"\n Thread-Walking Retrieval Results:")
-        print(f"   • Cited Context Message IDs (Checked Against Mail Store): {context_ids}")
+        print(f" Citing Context Message IDs (Verified): {context_ids}")
         
-        for idx, ctx_msg in enumerate(historical_context):
-            print(f"     [{idx+1}] ID: {ctx_msg.get('id')} | Snippet: {ctx_msg.get('body')[:70]}...")
+        # Format the history text block to present to the local LLM brain
+        history_text = ""
+        for idx, ctx in enumerate(historical_context):
+            history_text += f"\n[Prior Message ID: {ctx.get('id')}]\nFrom: {ctx.get('from')}\nBody: {ctx.get('body')}\n"
             
-        # Create a grounded reply object matching Part 3 requirements
-        grounded_reply = {
-            "reply_to_id": target_msg_id,
-            "citations": context_ids,
-            "draft_body": "Thanks Sam. I checked the earlier report about staging throwing 500s. I am pointing the worker to the new AMQP URL and restarting it now."
-        }
+        # Build strict prompt enforcing grounding rules and missing info fallback checks
+        prompt = (
+            f"You are an assistant reading an inbox. You must base your answer strictly on the history below. "
+            f"Do not invent any details or facts outside the text. If the context history does not contain enough "
+            f"information to answer truthfully, reply exactly with: 'The information is not in the inbox.'\n\n"
+            f"   HISTORICAL CONTEXT   \n{history_text}\n"
+            f"   CURRENT EMAIL REQUIRING REPLY   \n"
+            f"From: {target_email.get('from')}\n"
+            f"Subject: {target_email.get('subject')}\n"
+            f"Body: {target_email.get('body')}\n\n"
+            f"Draft a short, professional response back to the sender based ONLY on the facts above:"
+        )
         
-        # Write to the required outbox file structure
+        print("\nQuerying your local LLM model (Llama) for a grounded response...")
+        llm_response = call_llm(prompt)
+        
+        # Part 3 Rule 4: Handle information insufficiency gracefully
+        if "the information is not in the inbox" in llm_response.lower():
+            print("System halt: Grounded information missing from data store. No draft created.")
+            draft_content = "The information is not in the inbox."
+            citations_list = []
+        else:
+            print("LLM Response Generated Dynamically!")
+            draft_content = llm_response
+            citations_list = context_ids
+            
+        # Write clean structural JSON schema to the outbox directory
         output_file_path = os.path.join(outbox_directory, f"reply_{target_msg_id}.json")
         with open(output_file_path, 'w', encoding='utf-8') as out_f:
-            json.dump(grounded_reply, out_f, indent=2)
+            json.dump({
+                "reply_to_id": target_msg_id,
+                "citations": citations_list,
+                "draft_body": draft_content
+            }, out_f, indent=2)
             
-        print(f"\nGrounded output schema successfully written to: outbox/reply_{target_msg_id}.json")
+        print(f" Grounded output schema successfully written to: outbox/reply_{target_msg_id}.json")
     else:
-        print(f"Target message {target_msg_id} not found in inbox mapping.")
+        print(f" Target message {target_msg_id} not found in inbox mapping.")
+        
+    print("="*60)
 
 
 if __name__ == "__main__":
-
     process_inbox()
+

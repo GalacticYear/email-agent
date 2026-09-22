@@ -130,7 +130,7 @@ def process_inbox():
                 )
                 
                 print(f"Target found ({msg_id}). Local LLM evaluation:")
-                llm_response = call_local_llm(prompt)
+                llm_response = call_llm(prompt)
                 
                 # Part 3 Rule 4 Fallback check
                 if "the information is not in the inbox" in llm_response.lower():

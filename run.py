@@ -2,6 +2,22 @@ import json
 import os
 from agent import call_llm 
 
+
+def load_persistent_memory():
+    """Reads saved user preferences across system restarts."""
+    script_directory = os.path.dirname(os.path.abspath(__file__))
+    memory_path = os.path.join(script_directory, "memory.json")
+    
+    if os.path.exists(memory_path):
+        with open(memory_path, 'r', encoding='utf-8') as f:
+            try:
+                return json.load(f)
+            except json.JSONDecodeError:
+                return {}
+    return {}
+
+
+
 def process_inbox(dry_run=False, require_human_approval=True):
     # 1. Define ALL file paths upfront at the top of the scope
     script_directory = os.path.dirname(os.path.abspath(__file__))

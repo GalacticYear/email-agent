@@ -27,7 +27,7 @@ def process_inbox():
         subject=email.get("subject","").lower()
         body=email.get("body","").lower()
 
-        #ESCALATE-detection
+        #ESCALATE-detection (Security risks)
         if "security" in subject or "unauthorized" in body or"password" in subject:
             final_dispositions[msg_id]={
                 "disposition":"escalate",
@@ -37,9 +37,12 @@ def process_inbox():
             count["escalate"]+=1
             llm_required_count+=1
 
-        #ARCHIVE-detection
+        #ARCHIVE-detection (automated noise)
         elif ("no-reply" in sender or "noreply" in sender or "notifications" in sender or
-              any(k in subject or k in body[:100] for k in ["storage full", "unread messages", "usage", "receipt", "invoice", "digest", "newsletter", "shipped"])):
+              any(k in subject or k in body[:100] for k in ["storage full", "unread messages", "usage", "receipt",
+                                                             "invoice", "digest", "newsletter", "shipped", "package",
+                                                               "membership","bill","weekly summary","monthly summary",
+                                                               "top 5"])):
             final_dispositions[msg_id]={
                 "disposition":"archive",
                 "reason":"Automated alerts",
@@ -48,7 +51,7 @@ def process_inbox():
             count["archive"]+=1
             rule_processed_count+=1
 
-        #DEFER-detection
+        #DEFER-detection (time commitments, constraints, scheduling)
         elif any(k in subject or k in body for k in ["meeting", "deadline", "schedule", "calendar", "tomorrow", "staging"]):
             final_dispositions[msg_id] = {
                 "disposition": "defer",
@@ -59,7 +62,7 @@ def process_inbox():
             llm_required_count += 1
 
 
-        # DELEGATE-detection
+        # DELEGATE-detection (external task handoff)
         elif any(k in body for k in ["forward to", "assign to", "cc'd", "handle this"]):
             final_dispositions[msg_id] = {
                 "disposition": "delegate",
@@ -69,7 +72,7 @@ def process_inbox():
             count["delegate"] += 1
             llm_required_count += 1
 
-        #REPLY-detection
+        #REPLY-detection(direct interpersonal communication)
         else:
             final_dispositions[msg_id] = {
                 "disposition": "reply",
@@ -80,19 +83,50 @@ def process_inbox():
             llm_required_count += 1
 
 
-    print("FIVE-TIER DISPOSITION METRICS:")
+    print(" FIVE-TIER DISPOSITION METRICS:")
     for disp_type, ct in count.items():
         print(f"   • {disp_type.upper().ljust(10)} : {ct} messages")
-    print("-" * 60)
-    print(f"Total Accounted For    : {len(final_dispositions)} / {len(emails)}")
-    print(f"Handled by Rules   : {rule_processed_count} messages")
-    print(f"Pending LLM Engine  : {llm_required_count} messages")
-    print("-" * 60)
+    print(f" Total Accounted For    : {len(final_dispositions)} / {len(emails)}")
+    print(f" Handled by Rules   : {rule_processed_count} messages")
+    print(f" Pending LLM Engine  : {llm_required_count} messages")
 
     if len(final_dispositions) == len(emails):
-        print("Verification Check PASSED: 100% of messages have a unique disposition assigned!")
+        print(" Verification Check PASSED: 100% of messages have a unique disposition assigned")
     else:
-        print("Verification Check FAILED: Operational drop detected.")
+        print(" Verification Check FAILED: Operational drop detected")
+
+        #INSPECT TOP MESSAGES BY DISPOSITION
+    print("\nDATA INSPECTION: TOP MESSAGES FOR REVIEW\n\n")
+    
+    # Grouping the actual email objects by their assigned disposition
+    grouped_emails = {"escalate": [], "defer": [], "reply": [], "delegate": [], "archive": []}
+    
+    for email in emails:
+        msg_id = email.get("id")
+        disp_info = final_dispositions.get(msg_id, {})
+        disp_name = disp_info.get("disposition")
+        if disp_name in grouped_emails:
+            grouped_emails[disp_name].append(email)
+            
+    # Print the top 5 (or fewer) messages for each category
+    for disp_type, email_list in grouped_emails.items():
+        print(f"\nCategory: {disp_type.upper()} ({len(email_list)} messages total)")
+        print("-" * 50)
+        
+        if not email_list:
+            print("   (No messages in this category)")
+            continue
+            
+        # Slice to show up to the first 5 emails
+        for index, email in enumerate(email_list[:5]):
+            print(f"   [{index + 1}] ID: {email.get('id')} | From: {email.get('from')}")
+            print(f"       Subject: {email.get('subject')}")
+
+
+
+if __name__ == "__main__":
+
+    process_inbox()
 
 if __name__ == "__main__":
 

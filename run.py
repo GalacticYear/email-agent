@@ -7,11 +7,27 @@ def process_inbox():
     #Dynamically finding folder where .py script is saved and anchoring that path to inbox.json
     script_directory = os.path.dirname(os.path.abspath(__file__))
     inbox_file_path = os.path.join(script_directory, "inbox.json")
+    
+    # Anchoring outbox directory structure
+    outbox_directory = os.path.join(script_directory, "outbox")
+    os.makedirs(outbox_directory, exist_ok=True)
 
     with open(inbox_file_path, 'r', encoding='utf-8') as file:
         emails=json.load(file)
 
     print(f"Loaded {len(emails)} emails from inbox")
+
+    #PART 3: Building Chronological thread maps (Thread Walking Prep)
+    thread_map = {}
+    for email in emails:
+        t_id = email.get("thread_id", "orphan")
+        if t_id not in thread_map:
+            thread_map[t_id] = []
+        thread_map[t_id].append(email)
+        
+    # Sort every thread's emails from oldest to newest based on timestamp
+    for t_id in thread_map:
+        thread_map[t_id].sort(key=lambda x: x.get("timestamp", ""))
 
     final_dispositions={}
 
@@ -96,7 +112,7 @@ def process_inbox():
         print(" Verification Check FAILED: Operational drop detected")
 
         #INSPECT TOP MESSAGES BY DISPOSITION
-    print("\nDATA INSPECTION: TOP MESSAGES FOR REVIEW\n\n")
+    print("\nDATA INSPECTION: TOP MESSAGES FOR REVIEW\n")
     
     # Grouping the actual email objects by their assigned disposition
     grouped_emails = {"escalate": [], "defer": [], "reply": [], "delegate": [], "archive": []}
@@ -110,7 +126,7 @@ def process_inbox():
             
     # Print the top 5 (or fewer) messages for each category
     for disp_type, email_list in grouped_emails.items():
-        print(f"\nCategory: {disp_type.upper()} ({len(email_list)} messages total)")
+        print(f"Category: {disp_type.upper()} ({len(email_list)} messages total)")
         print("-" * 50)
         
         if not email_list:
@@ -123,11 +139,56 @@ def process_inbox():
             print(f"       Subject: {email.get('subject')}")
 
 
+ #PART 3 ADDITION:CONTEXTUAL THREAD-WALKING DEMO
+
+    print("\n\nEVALUATING HISTORICAL CONTEXT VIA THREAD WALKING\n")
+
+    
+    # We choose the specific 'm003' email from Sam responding about staging credentials
+    target_msg_id = "m003"
+    target_email = next((e for e in emails if e.get("id") == target_msg_id), None)
+    
+    if target_email:
+        t_id = target_email.get("thread_id")
+        full_thread = thread_map.get(t_id, [])
+        
+        # Walk thread: gather all messages in this thread that happened BEFORE the target email
+        historical_context = []
+        context_ids = []
+        
+        for msg in full_thread:
+            if msg.get("timestamp") < target_email.get("timestamp"):
+                historical_context.append(msg)
+                context_ids.append(msg.get("id"))
+                
+        print(f"  Target Message Identified: {target_msg_id}")
+        print(f"   From:    {target_email.get('from')}")
+        print(f"   Subject: {target_email.get('subject')}")
+        print(f"   Body:    {target_email.get('body')}")
+        print(f"\n Thread-Walking Retrieval Results:")
+        print(f"   • Cited Context Message IDs (Checked Against Mail Store): {context_ids}")
+        
+        for idx, ctx_msg in enumerate(historical_context):
+            print(f"     [{idx+1}] ID: {ctx_msg.get('id')} | Snippet: {ctx_msg.get('body')[:70]}...")
+            
+        # Create a grounded reply object matching Part 3 requirements
+        grounded_reply = {
+            "reply_to_id": target_msg_id,
+            "citations": context_ids,
+            "draft_body": "Thanks Sam. I checked the earlier report about staging throwing 500s. I am pointing the worker to the new AMQP URL and restarting it now."
+        }
+        
+        # Write to the required outbox file structure
+        output_file_path = os.path.join(outbox_directory, f"reply_{target_msg_id}.json")
+        with open(output_file_path, 'w', encoding='utf-8') as out_f:
+            json.dump(grounded_reply, out_f, indent=2)
+            
+        print(f"\nGrounded output schema successfully written to: outbox/reply_{target_msg_id}.json")
+    else:
+        print(f"Target message {target_msg_id} not found in inbox mapping.")
+
 
 if __name__ == "__main__":
 
     process_inbox()
 
-if __name__ == "__main__":
-
-    process_inbox()

@@ -210,17 +210,23 @@ def process_inbox(dry_run=False, require_human_approval=True):
                         for ctx in historical_context:
                             history_text += f"\n[Prior Message ID: {ctx.get('id')}]\nFrom: {ctx.get('from')}\nBody: {ctx.get('body')}\n"
 
+                                                # BUILD EXPLICIT THREAD-MINING PROMPT FOR PART 7
                         prompt = (
-                            f"You are an assistant reading an inbox. You must base your answer strictly on the history below. "
-                            f"Do not invent details. If the context history does not contain enough information to answer truthfully, "
+                            f"You are an expert inbox triage assistant. You are reviewing a long conversation thread.\n"
+                            f"[CRITICAL TASK]: The core actionable request may be buried in the middle of the historical context "
+                            f"rather than the current message. Inspect the entire context continuum chronologically.\n\n"
+                            f"=== GROUNDING DIRECTIVE ===\n"
+                            f"Base your final draft response strictly on facts found inside the timeline below. Do not invent details. "
+                            f"If the context history does not contain enough information to answer truthfully, "
                             f"reply exactly with: 'The information is not in the inbox.'\n\n"
-                            f"=== HISTORICAL CONTEXT ===\n{history_text}\n"
-                            f"=== CURRENT EMAIL REQUIRING REPLY ===\n"
+                            f"=== HISTORICAL CONTEXT (THROUGH TIME) ===\n{history_text}\n"
+                            f"=== CURRENT RECENT INCOMING EMAIL ===\n"
                             f"From: {email.get('from')}\n"
                             f"Subject: {email.get('subject')}\n"
                             f"Body: {email.get('body')}\n\n"
-                            f"Draft a short response based ONLY on the facts above:"
+                            f"Draft a short, professional response addressing the buried request or current status using ONLY the facts above:"
                         )
+
                         print(f"Target found ({msg_id}). Local LLM evaluation:")
                         llm_response = call_llm(prompt)
                         

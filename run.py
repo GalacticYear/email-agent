@@ -63,6 +63,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
     pane_pending_actions = []
     pane_flagged_actions = []
     pane_commitments = []
+    unsubscribe_batch=[]
     thread_summaries=[]
     
     # 2. Setup the outbox folder directory
@@ -198,7 +199,14 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
             # Workflow execution path for low-latency rule items
             if not disp_info["requires_llm"]:
-                draft_content = "Automated processing: message archived."
+                if "unsubscribe" in body or "opt out" in body:
+                    unsubscribe_batch.append({"id": msg_id, "sender": email.get("from"), "subject": email.get("subject")})
+                
+                output_schema = {"reply_to_id": msg_id, "citations": [], "draft_body": "Automated processing: message archived."}
+                if not dry_run:
+                    with open(os.path.join(outbox_directory, f"reply_{msg_id}.json"), 'w', encoding='utf-8') as out_f:
+                        json.dump(output_schema, out_f, indent=2)
+                continue  #Moving straight to the next email
             else:
                 # PART 6 SECURITY BARRIER: Check for injections right before calling the LLM
                 is_hostile, attack_reason = check_for_injection_with_guardrail(subject, body)

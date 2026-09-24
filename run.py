@@ -2,9 +2,28 @@ import json
 import os
 import sys
 from agent import call_llm 
-from dashboard_render import generate_system_dashboard
+from dashboard_renderer import generate_system_dashboard
 from memory import load_persistent_memory
 from inspection import terminal_inspection_reviews
+from capability_runner import run_single_capability
+
+def log_trace_event(script_directory, cap_id, event_type, msg_id, extra_data=None):
+    """
+    Appends a structured tracking row into trace.jsonl to satisfy the 
+    machine-readable graded artifact requirement. Every line is a valid JSON object.
+    """
+    trace_path = os.path.join(script_directory, "trace.jsonl")
+    
+    event_payload = {
+        "cap": cap_id,
+        "event": event_type,
+        "msg_id": msg_id,
+    }
+    if extra_data:
+        event_payload.update(extra_data)
+        
+    with open(trace_path, "a", encoding="utf-8") as tf:
+        tf.write(json.dumps(event_payload) + "\n")
 
 
 def check_for_injection_with_guardrail(subject, body):
@@ -110,6 +129,9 @@ def process_inbox(dry_run=False, require_human_approval=True):
             }
             count["escalate"] += 1
             llm_required_count += 1
+             #Trace Log: Record every decision event row
+            log_trace_event(script_directory, "R1", "decision", msg_id, {"disposition": final_dispositions[msg_id]["disposition"]})
+
 
         # PART 5 OVERRIDE: Persistent Memory Check
         elif any(vip in sender for vip in vip_list):
@@ -217,6 +239,9 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     
                     # 2. Writing a structured refusal directly to audit log file
                     log_file.write(f"ID: {msg_id} | HOSTILE ATTACK INJECTION REFUSED | Details: {attack_reason}\n")
+
+                    #Trace Log: Record hostile subversion refusal
+                    log_trace_event(script_directory, "R5", "refusal", msg_id, {"reason": attack_reason})
                     
                     # 3. CRITICAL PART 6 RULE: Skipping file generation entirely for this message
                     continue  
@@ -295,6 +320,10 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
                         print(f"Target found ({msg_id}). Local LLM evaluation:")
                         llm_response = call_llm(prompt)
+
+                             #Trace Log: Record successful grounding text response
+                        log_trace_event(script_directory, "R2", "draft", msg_id, {"cited": citations_list})
+
                         
                         # Part 3 Rule 4: Handle information insufficiency gracefully
                         if "the information is not in the inbox" in llm_response.lower():
@@ -344,6 +373,10 @@ def process_inbox(dry_run=False, require_human_approval=True):
                 
                 # Part 4 Rule 4 Log requirements tracking
                 log_file.write(f"ID: {msg_id} | Disposition: {disp_info['disposition'].upper()} | Status: {decision_status} | Citations: {citations_list}\n")
+
+                #Trace Log: Record safety gate event tracking
+                log_trace_event(script_directory, "R3", "gate", msg_id, {"status": decision_status})
+
             else:
                 # Reversible paths (Archive, Defer, Delegate) bypass explicit user input gates
                 if not dry_run:
@@ -360,8 +393,17 @@ def process_inbox(dry_run=False, require_human_approval=True):
         unsubscribe_batch,
         thread_summaries,
         unanswered_followups,
+        detected_tones_log,
         final_dispositions
     )
+
+        #Trace Log: Log custom signature suite execution runs
+    log_trace_event(script_directory, "X1", "unsubscribe_scan", "all", {"count": len(unsubscribe_batch)})
+    log_trace_event(script_directory, "X2", "thread_summary_pass", "all")
+    log_trace_event(script_directory, "X3", "audit_loop_pass", "all")
+    log_trace_event(script_directory, "X4", "followup_tracker_pass", "all")
+    log_trace_event(script_directory, "X5", "tone_mirroring_pass", "all")
+
    
 
     # DATA INSPECTION TERMINAL REVIEWS 
@@ -370,4 +412,19 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
 
 if __name__ == "__main__":
-    process_inbox(dry_run=False, require_human_approval=False)
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="InboxHero Automated Grading Interface")
+    parser.add_argument("--all", action="store_true", help="Process the entire suite pipeline sequentially")
+    parser.add_argument("--cap", type=str, help="Execute a single targeted capability test trace")
+    
+    args = parser.parse_args()
+    
+    #  DYNAMIC BRANCH ROUTING:
+    if args.cap:
+        # Executes only the isolated feature without loading the heavy loop!
+        run_single_capability(args.cap.strip().upper())
+    else:
+        # Default fallback running your full 100-email automation loop on autopilot
+        print(" Processing full inbox pipeline suite pass...")
+        process_inbox(dry_run=False, require_human_approval=False)

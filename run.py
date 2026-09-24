@@ -3,19 +3,9 @@ import os
 import sys
 from agent import call_llm 
 from dashboard_render import generate_system_dashboard
+from memory import load_persistent_memory
+from inspection import terminal_inspection_reviews
 
-def load_persistent_memory():
-    """Reads saved user preferences across system restarts."""
-    script_directory = os.path.dirname(os.path.abspath(__file__))
-    memory_path = os.path.join(script_directory, "memory.json")
-    
-    if os.path.exists(memory_path):
-        with open(memory_path, 'r', encoding='utf-8') as f:
-            try:
-                return json.load(f)
-            except json.JSONDecodeError:
-                return {}
-    return {}
 
 def check_for_injection_with_guardrail(subject, body):
     """
@@ -239,7 +229,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
 
                     #PART 8 : Unanswered followups
-                    if len(historical_context) > 0 and "urgent" in history_text.lower() and msg_id != "m003":
+                    if len(historical_context) > 0 and "urgent" in body and msg_id != "m003":
                         unanswered_followups.append({
                             "thread_id": msg_thread_id,
                             "last_msg_id": historical_context[-1].get("id"),
@@ -354,28 +344,10 @@ def process_inbox(dry_run=False, require_human_approval=True):
     )
    
 
+    # DATA INSPECTION TERMINAL REVIEWS 
+    terminal_inspection_reviews(emails,final_dispositions)
+    
 
-    # === DATA INSPECTION TERMINAL REVIEWS ===
-    print("\nDATA INSPECTION: TOP MESSAGES FOR REVIEW\n")
-    grouped_emails = {"escalate": [], "defer": [], "reply": [], "delegate": [], "archive": []}
-    for email in emails:
-        m_id = email.get("id")
-        d_name = final_dispositions.get(m_id, {}).get("disposition")
-        if d_name in grouped_emails:
-            grouped_emails[d_name].append(email)
-
-    # Print the top 5 (or fewer) messages for each category
-    for disp_type, email_list in grouped_emails.items():
-        print(f"Category: {disp_type.upper()} ({len(email_list)} messages total)")
-        print("-" * 50)
-        if not email_list:
-            print("   (No messages in this category)")
-            continue
-        # Slice to show up to the first 5 emails
-        for index, mail in enumerate(email_list[:5]):
-            print(f"   [{index + 1}] ID: {mail.get('id')} | From: {mail.get('from')}")
-            print(f"       Subject: {mail.get('subject')}")
 
 if __name__ == "__main__":
-    # Configure your runtime variables directly here
     process_inbox(dry_run=False, require_human_approval=False)

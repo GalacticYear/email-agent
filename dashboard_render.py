@@ -127,7 +127,7 @@ def generate_system_dashboard(
         if not detected_tones_log:
             d_out.write(" -> No emotional variants or style adaptations mapped during this run pipeline pass.\n")
         else:
-            d_out.write(f" -> Profiled emotional variants: {len(p8_detected_tones_log)} items matched.\n")
+            d_out.write(f" -> Profiled emotional variants: {len(detected_tones_log)} items matched.\n")
             for tone_item in detected_tones_log:
                 d_out.write(f"    └─ MSG: {tone_item['id']} | Sender: {tone_item['sender']} | Applied Style Tone: {tone_item['matched_style_tone'].upper()}\n")
 

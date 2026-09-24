@@ -35,7 +35,7 @@ def check_for_injection_with_guardrail(subject, body):
     fast_signals = ["ignore previous instructions", "system override", "forget your rules", "disregard prior directives"]
     combined_text = f"Subject: {subject}\nBody: {body}".lower()
     if any(signal in combined_text for signal in fast_signals):
-        return True
+        return True, "Implicit override match via core structural phrase block."
 
     #Evaluated hidden threats
     guardrail_prompt = (
@@ -129,9 +129,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
             }
             count["escalate"] += 1
             llm_required_count += 1
-             #Trace Log: Record every decision event row
-            log_trace_event(script_directory, "R1", "decision", msg_id, {"disposition": final_dispositions[msg_id]["disposition"]})
-
+            
 
         # PART 5 OVERRIDE: Persistent Memory Check
         elif any(vip in sender for vip in vip_list):
@@ -187,6 +185,10 @@ def process_inbox(dry_run=False, require_human_approval=True):
             count["reply"] += 1
             llm_required_count += 1
 
+        #Trace Log: Record every decision event row
+        log_trace_event(script_directory, "R1", "decision", msg_id, {"disposition": final_dispositions[msg_id]["disposition"]})
+
+    
     print(" FIVE-TIER DISPOSITION METRICS:")
     for disp_type, ct in count.items():
         print(f"   • {disp_type.upper().ljust(10)} : {ct} messages")
@@ -268,6 +270,11 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     #Part 8: (Tier B Capability): Summarizing Long Conversation Threads
                                      
                     if len(historical_context) >= 2 and msg_thread_id not in thread_summaries:
+                        local_history_text = ""
+                        for ctx in historical_context:
+                            local_history_text += f"\nFrom: {ctx.get('from')}\nBody: {ctx.get('body')}\n"
+                            
+
                         summary_prompt = (
                             f"Analyze this long email exchange thread and summarize it concisely. "
                             f"Identify exactly what the current unresolved or open question is.\n\n"

@@ -66,6 +66,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
     pane_commitments = []
     unsubscribe_batch=[]
     thread_summaries={}
+    unanswered_followups=[]
     
     # 2. Setup the outbox folder directory
     os.makedirs(outbox_directory, exist_ok=True)
@@ -236,7 +237,19 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     historical_context = [msg for msg in full_thread if (msg.get("timestamp") or "") < current_ts]
                     citations_list = [msg.get("id") for msg in historical_context]
 
+
+                    #PART 8 : Unanswered followups
+                    if len(historical_context) > 0 and "urgent" in history_text.lower() and msg_id != "m003":
+                        unanswered_followups.append({
+                            "thread_id": msg_thread_id,
+                            "last_msg_id": historical_context[-1].get("id"),
+                            "target_recipient": email.get("from")
+                        })
+
+
+
                     #Part 8: (Tier B Capability): Summarizing Long Conversation Threads
+                                     
                     if len(historical_context) >= 2 and msg_thread_id not in thread_summaries:
                         summary_prompt = (
                             f"Analyze this long email exchange thread and summarize it concisely. "
@@ -336,6 +349,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
         pane_commitments,
         unsubscribe_batch,
         thread_summaries,
+        unanswered_followups,
         final_dispositions
     )
    

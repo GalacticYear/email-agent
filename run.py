@@ -2,6 +2,7 @@ import json
 import os
 import sys
 from agent import call_llm 
+from dashboard_render import generate_system_dashboard
 
 def load_persistent_memory():
     """Reads saved user preferences across system restarts."""
@@ -64,7 +65,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
     pane_flagged_actions = []
     pane_commitments = []
     unsubscribe_batch=[]
-    thread_summaries=[]
+    thread_summaries={}
     
     # 2. Setup the outbox folder directory
     os.makedirs(outbox_directory, exist_ok=True)
@@ -326,71 +327,18 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     with open(output_file_path, 'w', encoding='utf-8') as out_f:
                         json.dump(output_schema, out_f, indent=2)
 
-   # PART 7: AUTOMATED THREE-PANE DASHBOARD FILE GENERATOR
-    print(f"\n[PART 7] COMPILING REPRODUCIBLE SYSTEM DASHBOARD...")
-    
-    # CALENDAR COMMITMENT EXTRACTION DATA STRUCTURE (FOR PANE 3)
-    # Scenario: Aria's Invite (m010) and the pre-existing Dental commitment (m061) 
-    # clash directly on Sept 15th at 3:00 PM. Staging sync pass derives from multiple IDs (m003, m005).
-    pane_commitments = [
-        {"time": "2026-09-15 15:00", "task": "Aria Project Sync Invitation", "citations": ["m010"]},
-        {"time": "2026-09-15 15:00", "task": "Pre-booked Dental Cleaning Appointment", "citations": ["m061"]},
-        {"time": "2026-09-22 09:00", "task": "Staging Build Synchronization Sync Pass", "citations": ["m003", "m005"]}
-    ]
 
-    with open(dashboard_file_path, "w", encoding="utf-8") as d_out:
-        d_out.write("="*80 + "\n")
-        d_out.write("        IIIT HYDERABAD - EMAIL AGENT SYSTEM CORE OPERATING DASHBOARD\n")
-        d_out.write("="*80 + "\n\n")
-        
-           # PANE 1: PENDING ACTIONS (Gated under Part 4 requirements)
-        d_out.write("[PANE 1: PENDING ACTIONS QUEUE]\n")
-        d_out.write("-" * 80 + "\n")
-        d_out.write(f"{'MSG ID'.ljust(10)} | {'PROPOSED ACTION'.ljust(18)} | {'GATING SAFETY ENFORCEMENT REASON'}\n")
-        d_out.write("-" * 80 + "\n")
-        if not pane_pending_actions:
-            d_out.write(" (No irreversible operations currently pending manual verification clearance)\n")
-        else:
-            for item in pane_pending_actions:
-                d_out.write(f"{item['id'].ljust(10)} | {item['proposed'].ljust(18)} | {item['reason']}\n")
-                d_out.write(f"  └─ Proposed Draft Preview: {item['draft_preview']}\n\n")
-        
-        # PANE 2: FLAGGED ACTIONS (Security refusions under Part 6 requirements)
-        d_out.write("\n" + "="*80 + "\n\n")
-        d_out.write("[PANE 2: FLAGGED SUBVERSIONS & SYSTEM REFUSALS]\n")
-        d_out.write("-" * 80 + "\n")
-        d_out.write(f"{'ALERT ID'.ljust(10)} | {'DETECTED ATTACK ATTEMPT / FAULT'.ljust(40)} | {'CONTAINMENT ACTION'}\n")
-        d_out.write("-" * 80 + "\n")
-        if not pane_flagged_actions:
-            d_out.write(" (Clean System Sweep: No hostile subversions or ungrounded faults encountered)\n")
-        else:
-            for item in pane_flagged_actions:
-                d_out.write(f"{item['id'].ljust(10)} | {item['attempted'].ljust(40)} | {item['action_taken']}\n")
-
-        # PANE 3: COMMITMENTS (Extracted obligations timeline & schedule conflicts)
-        d_out.write("\n" + "="*80 + "\n\n")
-        d_out.write("[PANE 3: EXTRACTED OBLIGATIONS & CALENDAR COMMITMENTS]\n")
-        d_out.write("-" * 80 + "\n")
-        
-        # Group time bookings to detect and call out scheduling collisions explicitly
-        timeline_clash_tracker = {}
-        for event in pane_commitments:
-            t = event["time"]
-            timeline_clash_tracker[t] = timeline_clash_tracker.get(t, 0) + 1
-            
-        for event in pane_commitments:
-            # Highlight time slot collisions visibly to comply with the scoring rubric
-            is_clashing = timeline_clash_tracker[event["time"]] > 1
-            clash_alert_flag = " [ CRITICAL TIMELINE CONFLICT DETECTED]" if is_clashing else ""
-            
-            d_out.write(f"   DATE/TIME: {event['time']}{clash_alert_flag}\n")
-            d_out.write(f"    Assigned Task: {event['task']}\n")
-            d_out.write(f"    Grounded Source Citations Message IDs: {event['citations']}\n\n")
-        d_out.write("="*80 + "\n")
-
-    print(f" Dashboard output file built successfully at: dashboard.txt")
-
-
+    #PART 7 and PART 8
+    generate_system_dashboard(
+        dashboard_file_path,
+        pane_pending_actions,
+        pane_flagged_actions,
+        pane_commitments,
+        unsubscribe_batch,
+        thread_summaries,
+        final_dispositions
+    )
+   
 
 
     # === DATA INSPECTION TERMINAL REVIEWS ===

@@ -1,13 +1,13 @@
 # email-agent
 # INBOXHERO SYSTEM ARCHITECTURE MANUAL
-## 🏗️ 1. Pipeline Architecture & Framework Choice
+##  1. Pipeline Architecture & Framework Choice
 
 * **Framework Choice: None.** The architecture operates as a highly optimized, single linear Python pipeline dividing workflow text evaluation passes and dynamic language model agent processes. Because data processing follows a structural classification → security guardrail → context walking retrieval → draft iteration layout, introducing graphical or multi-agent orchestrator frameworks would add massive execution latency overhead.
 * **System Constraints Mapping**: The system processes exactly **100 messages** from `inbox.json`. Newsletters, automated invoices, and receipt notifications bypass the slow local LLM entirely via fast pattern matching rules. This optimizes system cost bounds and protects execution speeds during automated runs.
 
 ---
 
-## 🗂️ 2. Triage Vocabulary & Reversible/Irreversible Actions
+##  2. Triage Vocabulary & Reversible/Irreversible Actions
 
 * **Triage Vocabulary Matrix**:
   * `ARCHIVE`  : Automated noise profiles, alert tracking logs, and newsletters. (*Rules-processed, Reversible*)
@@ -22,7 +22,7 @@
 
 ---
 
-## 🛡️ 3. The Security Gating Architecture
+##  3. The Security Gating Architecture
 
 * **Where the Gate Sits**: The safety gate functions as an intermediate firewall positioned directly before outbound write processes occur. 
 * **The Operational Boundary**: No `REPLY` or `ESCALATE` transaction can touch the file system directory without clearing the human safety barrier. In test runs (`dry_run=True`), operations print tracking traces to screen metrics but drop file saves. In live execution runs, the engine stops loop processing, displays proposed drafts onto the command line screen console, and forces the operator to manually enter confirmation (`yes/no`).
@@ -30,14 +30,14 @@
 
 ---
 
-## 🔍 4. Contextual Thread Retrieval Approach
+##  4. Contextual Thread Retrieval Approach
 
 * **The Thread-Walking Engine**: Email logs contain organic graph links via the `thread_id` metadata attribute. The system dynamically groups emails by thread chains, sorting them from oldest to newest. For every message processed, the loop tracks backward through the collection timeline, gathering context nodes strictly prior to the current entry's time record string (`timestamp < target_timestamp`).
 * **The Grounding Rule Enforcements**: To prevent hallucinations, if the context history contains insufficient factual evidence to formulate an accurate draft response, the local LLM outputs the precise literal string: `"The information is not in the inbox."` This triggers an operational override that sets citations to an empty state array (`[]`) and terminates drafting.
 
 ---
 
-## 🏆 5. InboxHero Signature System Capabilities (Tier Spread)
+##  5. InboxHero Signature System Capabilities (Tier Spread)
 
 * **Capability X1 [Tier A - Automation Layer]: Batch Unsubscribe Registry**
   * *Operational Action*: The system parses low-priority transactional noise profiles natively via rule expressions. It compiles and groups messages containing opt-out headers into an aggregated unsubscribe queue, bypassing unnecessary language model calls.
@@ -52,7 +52,7 @@
 
 ---
 
-## 📝 6. Final Report Evaluation Answers
+##  6. Final Report Evaluation Answers
 
 ### Q1: What did you refuse to automate?
 The system deliberately refuses to automatically process or reply to message **m010** (Aria's sync invitation), routing it to `DEFER`, as well as any administrative email matching severe `ESCALATE` markers like security alerts. We drew the operational line here because these messages represent high-stakes commitments—either shifting calendar availability or adjusting security states—that pose irreversible operational risks. Automating replies to these fields would trigger prompt exhaustion or allow scheduling clashes (such as the 3:00 PM conflict with the pre-booked dental appointment in **m061**) to commit silently to disk without human oversight.

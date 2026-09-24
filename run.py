@@ -41,22 +41,24 @@ def check_for_injection_with_guardrail(subject, body):
         return False, ""
 
     
-
+#MAIN EXECUTION PIPELINE ENGINE
 def process_inbox(dry_run=False, require_human_approval=True):
-    # 1. Define ALL file paths upfront at the top of the scope
+    # 1. Defining ALL file paths
     script_directory = os.path.dirname(os.path.abspath(__file__))
     inbox_file_path = os.path.join(script_directory, "inbox.json")
     outbox_directory = os.path.join(script_directory, "outbox")
     log_file_path = os.path.join(script_directory, "gated_decisions.log")
     dashboard_file_path = os.path.join(script_directory, "dashboard.txt") 
 
-    #accumulators
+    #Dashboard accumulators and Directories
     pane_pending_actions = []
     pane_flagged_actions = []
     pane_commitments = []
+    #PART8 Capability registeries
     unsubscribe_batch=[]
     thread_summaries={}
     unanswered_followups=[]
+    detected_tones_log=[]
     
     # 2. Setup the outbox folder directory
     os.makedirs(outbox_directory, exist_ok=True)
@@ -71,7 +73,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
     print(f"Loaded {len(emails)} emails from inbox")
 
-    # PART 3: Building Chronological thread maps (Thread Walking Prep)
+    # PART 3: Building Chronological thread maps(Thread Walking Prep)
     thread_map = {}
     for email in emails:
         t_id = email.get("thread_id", "orphan")
@@ -92,7 +94,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
     user_preferences = load_persistent_memory()
     vip_list = user_preferences.get("vip_senders", [])
 
-    # Step 1: Run Classification Rules Loop
+    # Step 1: Run Classification Rules Loop(TRIAGE)
     for email in emails:
         msg_id = email.get("id")
         sender = email.get("from", "").lower()
@@ -206,17 +208,17 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     print(f" [HOSTILE THREAT ATTACK INTERCEPTED] Message ID: {msg_id}")
                     print(f"   Details: {attack_reason}")
                     
-                    # 1. Capture the threat details for your Part 7 Dashboard (Pane 2)
+                    # 1. Capturing the threat details for Part 7 Dashboard (Pane 2)
                     pane_flagged_actions.append({
                         "id": msg_id,
                         "attempted": f"Indirect Prompt Injection: {attack_reason}",
                         "action_taken": "BLOCKED outbox generation completely. Threat quarantined safely."
                     })
                     
-                    # 2. Write a structured refusal directly to your audit log file
+                    # 2. Writing a structured refusal directly to audit log file
                     log_file.write(f"ID: {msg_id} | HOSTILE ATTACK INJECTION REFUSED | Details: {attack_reason}\n")
                     
-                    # 3. CRITICAL PART 6 RULE: Skip file generation entirely for this message!
+                    # 3. CRITICAL PART 6 RULE: Skipping file generation entirely for this message
                     continue  
                 else:
                     # Execute Dynamic Thread Walking
@@ -252,26 +254,44 @@ def process_inbox(dry_run=False, require_human_approval=True):
 
 
                     if msg_id in ["m003", "m005", "m010"]:
+                     # PART 8 (Capability 5): Dynamic Tone & Sentiment Mirroring Engine
+                        tone_prompt = f"Identify the dominant tone or emotional state (e.g., formal, casual, urgent) in this text: '{body}'. Output ONLY a single descriptive word."
+                        try:
+                            detected_tone = call_llm(tone_prompt).strip().lower()
+                            print(f" -> Dynamic Relationship Subtext Detected for {msg_id}: [{detected_tone.upper()}]")
+                        except Exception:
+                            detected_tone = "professional"
+
+
+                        detected_tones_log.append({
+                            "id": msg_id,
+                            "sender": email.get("from"),
+                            "matched_style_tone": detected_tone
+                         })
+                        
+
                         history_text = ""
                         for ctx in historical_context:
                             history_text += f"\n[Prior Message ID: {ctx.get('id')}]\nFrom: {ctx.get('from')}\nBody: {ctx.get('body')}\n"
 
-                                                # BUILD EXPLICIT THREAD-MINING PROMPT FOR PART 7
+                        # BUILDING EXPLICIT THREAD-MINING PROMPT FOR PART 7
                         prompt = (
-                            f"You are an expert inbox triage assistant. You are reviewing a long conversation thread.\n"
-                            f"[CRITICAL TASK]: The core actionable request may be buried in the middle of the historical context "
-                            f"rather than the current message. Inspect the entire context continuum chronologically.\n\n"
+                            f"You are an expert inbox triage assistant reviewing a long conversation thread.\n"
+                            f"[PART 7 CRITICAL TASK]: The core actionable request may be buried in the middle of the historical context "
+                            f"rather than the current message. Inspect the entire context continuum chronologically to address it.\n"
+                            f"[PART 8 STYLE GUIDELINE]: The sender's tone has been analyzed as '{detected_tone}'. "
+                            f"You must adapt your writing style to professionally match or defuse this tone while strictly remaining factual.\n\n"
                             f"=== GROUNDING DIRECTIVE ===\n"
                             f"Base your final draft response strictly on facts found inside the timeline below. Do not invent details. "
-                            f"If the context history does not contain enough information to answer truthfully, "
-                            f"reply exactly with: 'The information is not in the inbox.'\n\n"
+                            f"If the context history does not contain enough information to answer truthfully, reply exactly with: 'The information is not in the inbox.'\n\n"
                             f"=== HISTORICAL CONTEXT (THROUGH TIME) ===\n{history_text}\n"
                             f"=== CURRENT RECENT INCOMING EMAIL ===\n"
                             f"From: {email.get('from')}\n"
                             f"Subject: {email.get('subject')}\n"
                             f"Body: {email.get('body')}\n\n"
-                            f"Draft a short, professional response addressing the buried request or current status using ONLY the facts above:"
-                        )
+                            f"Draft a short response addressing any buried requests or current status using ONLY the facts above:"
+                         )
+
 
                         print(f"Target found ({msg_id}). Local LLM evaluation:")
                         llm_response = call_llm(prompt)
@@ -294,7 +314,7 @@ def process_inbox(dry_run=False, require_human_approval=True):
             }
             output_file_path = os.path.join(outbox_directory, f"reply_{msg_id}.json")
 
-            # === PART 4: SECURITY HUMAN APPROVAL & AUDIT LOG GATES ===
+            # PART 4:SECURITY HUMAN APPROVAL & AUDIT LOG GATES
             if is_irreversible:
                 decision_status = "PROPOSED"
                 

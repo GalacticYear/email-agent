@@ -10,6 +10,7 @@ def generate_system_dashboard(
     unsubscribe_batch,
     thread_summaries,
     unanswered_followups,
+    detected_tones_log,
     final_dispositions
 ):
     """
@@ -66,7 +67,7 @@ def generate_system_dashboard(
             
         for event in pane_commitments:
             is_clashing = timeline_clash_tracker[event["time"]] > 1
-            clash_alert_flag = " [⚠️ CRITICAL TIMELINE CONFLICT DETECTED]" if is_clashing else ""
+            clash_alert_flag = " [ CRITICAL TIMELINE CONFLICT DETECTED]" if is_clashing else ""
             
             d_out.write(f"  DATE/TIME: {event['time']}{clash_alert_flag}\n")
             d_out.write(f"    Assigned Task: {event['task']}\n")
@@ -91,7 +92,7 @@ def generate_system_dashboard(
             d_out.write(" -> No deep multi-turn conversation chains discovered in this mail run.\n")
         else:
             for t_id, thread_summary in list(thread_summaries.items())[:1]:
-                d_out.write(f" 🧵 Thread ID: {t_id}\n")
+                d_out.write(f"   Thread ID: {t_id}\n")
                 d_out.write(f"    Extracted Core Open Question: {thread_summary}\n")
 
         # 3. Tier C Capability Presentation (The Interactive Explanatory Audit Loop)
@@ -115,12 +116,20 @@ def generate_system_dashboard(
             d_out.write("    Audit loop tracking execution currently suspended.\n")
 
         # 4. Tier B Follow-Up Capability Presentation
-        d_out.write("\n🏆 CAPABILITY 4 [TIER B - CONTEXT RETRIEVAL]: AUTOMATED FOLLOW-UP TRACKER\n")
+        d_out.write("\n CAPABILITY 4 [TIER B - CONTEXT RETRIEVAL]: AUTOMATED FOLLOW-UP TRACKER\n")
         if not unanswered_followups:
             d_out.write(" -> All outward client requests have been successfully addressed or acknowledged.\n")
         else:
             for f_up in unanswered_followups[:2]:
-                d_out.write(f"    ⚠️ Thread '{f_up['thread_id']}' matches unanswered state! Follow-up target: {f_up['target_recipient']}\n")
+                d_out.write(f"     Thread '{f_up['thread_id']}' matches unanswered state! Follow-up target: {f_up['target_recipient']}\n")
+
+        d_out.write("\n CAPABILITY 5 [TIER C - INTELLIGENT AGENCY]: LINGUISTIC SENTIMENT & TONE MIRRORING\n")
+        if not detected_tones_log:
+            d_out.write(" -> No emotional variants or style adaptations mapped during this run pipeline pass.\n")
+        else:
+            d_out.write(f" -> Profiled emotional variants: {len(p8_detected_tones_log)} items matched.\n")
+            for tone_item in detected_tones_log:
+                d_out.write(f"    └─ MSG: {tone_item['id']} | Sender: {tone_item['sender']} | Applied Style Tone: {tone_item['matched_style_tone'].upper()}\n")
 
 
         d_out.write("="*80 + "\n")

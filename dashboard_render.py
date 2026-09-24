@@ -9,6 +9,7 @@ def generate_system_dashboard(
     pane_commitments,
     unsubscribe_batch,
     thread_summaries,
+    unanswered_followups,
     final_dispositions
 ):
     """
@@ -112,6 +113,15 @@ def generate_system_dashboard(
             d_out.write(f"    [System Operational Rationale Traced]: {audit_verdict_explanation}\n")
         except Exception:
             d_out.write("    Audit loop tracking execution currently suspended.\n")
+
+        # 4. Tier B Follow-Up Capability Presentation
+        d_out.write("\n🏆 CAPABILITY 4 [TIER B - CONTEXT RETRIEVAL]: AUTOMATED FOLLOW-UP TRACKER\n")
+        if not unanswered_followups:
+            d_out.write(" -> All outward client requests have been successfully addressed or acknowledged.\n")
+        else:
+            for f_up in unanswered_followups[:2]:
+                d_out.write(f"    ⚠️ Thread '{f_up['thread_id']}' matches unanswered state! Follow-up target: {f_up['target_recipient']}\n")
+
 
         d_out.write("="*80 + "\n")
 

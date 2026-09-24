@@ -59,10 +59,11 @@ def process_inbox(dry_run=False, require_human_approval=True):
     log_file_path = os.path.join(script_directory, "gated_decisions.log")
     dashboard_file_path = os.path.join(script_directory, "dashboard.txt") 
 
-   #accumulators
+    #accumulators
     pane_pending_actions = []
     pane_flagged_actions = []
     pane_commitments = []
+    thread_summaries=[]
     
     # 2. Setup the outbox folder directory
     os.makedirs(outbox_directory, exist_ok=True)
@@ -225,6 +226,18 @@ def process_inbox(dry_run=False, require_human_approval=True):
                     
                     historical_context = [msg for msg in full_thread if (msg.get("timestamp") or "") < current_ts]
                     citations_list = [msg.get("id") for msg in historical_context]
+
+                    #Part 8: (Tier B Capability): Summarizing Long Conversation Threads
+                    if len(historical_context) >= 2 and msg_thread_id not in thread_summaries:
+                        summary_prompt = (
+                            f"Analyze this long email exchange thread and summarize it concisely. "
+                            f"Identify exactly what the current unresolved or open question is.\n\n"
+                            f"=== CONVERSATION LOGS ===\n{history_text}\n"
+                            f"Output only the final summary and clear open question:"
+                        )
+                        thread_summaries[msg_thread_id] = call_llm(summary_prompt).strip()
+
+
 
                     if msg_id in ["m003", "m005", "m010"]:
                         history_text = ""

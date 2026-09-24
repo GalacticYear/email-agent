@@ -20,7 +20,7 @@ def generate_system_dashboard(
 
     with open(dashboard_file_path, "w", encoding="utf-8") as d_out:
         d_out.write("="*80 + "\n")
-        d_out.write("        IIIT HYDERABAD - EMAIL AGENT SYSTEM CORE OPERATING DASHBOARD\n")
+        d_out.write("         EMAIL AGENT SYSTEM CORE OPERATING DASHBOARD\n")
         d_out.write("="*80 + "\n\n")
         
         # ---------------------------------------------------------------------
